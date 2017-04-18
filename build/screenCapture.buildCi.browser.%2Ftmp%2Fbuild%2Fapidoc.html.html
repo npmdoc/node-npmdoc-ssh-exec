@@ -1,0 +1,276 @@
+<html><head></head><body><div class="apidocDiv">
+<style>
+/*csslint
+*/
+.apidocDiv {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.apidocDiv a[href] {
+    color: #33f;
+    font-weight: bold;
+    text-decoration: none;
+}
+.apidocDiv a[href]:hover {
+    text-decoration: underline;
+}
+.apidocCodeCommentSpan {
+    background: #bbf;
+    color: #000;
+    display: block;
+}
+.apidocCodeKeywordSpan {
+    color: #d00;
+    font-weight: bold;
+}
+.apidocCodePre {
+    background: #eef;
+    border: 1px solid;
+    color: #777;
+    padding: 5px;
+    white-space: pre-wrap;
+}
+.apidocFooterDiv {
+    margin-top: 20px;
+    text-align: center;
+}
+.apidocModuleLi {
+    margin-top: 10px;
+}
+.apidocSectionDiv {
+    border-top: 1px solid;
+    margin-top: 20px;
+}
+.apidocSignatureSpan {
+    color: #777;
+    font-weight: bold;
+}
+</style>
+<h1>api documentation for
+    <a href="https://github.com/mafintosh/ssh-exec">ssh-exec (v2.0.0)</a>
+</h1>
+<h4>Execute a script over ssh using Node.JS</h4>
+<div class="apidocSectionDiv"><a href="#apidoc.tableOfContents" id="apidoc.tableOfContents"><h1>table of contents</h1></a><ol>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.ssh-exec">module ssh-exec</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.ssh-exec.ssh-exec">
+            function <span class="apidocSignatureSpan"></span>ssh-exec
+            <span class="apidocSignatureSpan">(cmd, opts, cb)</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.ssh-exec.toString">
+            function <span class="apidocSignatureSpan">ssh-exec.</span>toString
+            <span class="apidocSignatureSpan">()</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.ssh-exec.toString">module ssh-exec.toString</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.ssh-exec.toString.toString">
+            function <span class="apidocSignatureSpan">ssh-exec.</span>toString
+            <span class="apidocSignatureSpan">()</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+</ol></div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.ssh-exec" id="apidoc.module.ssh-exec">module ssh-exec</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.ssh-exec.ssh-exec" id="apidoc.element.ssh-exec.ssh-exec">
+        function <span class="apidocSignatureSpan"></span>ssh-exec
+        <span class="apidocSignatureSpan">(cmd, opts, cb)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">ssh-exec = function (cmd, opts, cb) {
+  opts = parse(opts)
+
+  var stream = duplexify()
+  var client = new ssh2.Client()
+  var key = opts.key === false ? undefined : opts.key || path.join(HOME, '.ssh', 'id_rsa')
+  var fingerprint
+
+  client.on('error', function (err) {
+    stream.destroy(err)
+  })
+
+  var connect = function () {
+    if (key &amp;&amp; key.toString().toLowerCase().indexOf('encrypted') &gt; -1) key = null
+
+    var verifier = function (hash) {
+      fingerprint = hash
+
+      if (!opts.fingerprint) return true
+      if (fingerprint === opts.fingerprint) return true
+
+      client.destroy(new Error('Host could not be verified'))
+      return false
+    }
+
+    if (opts.password) {
+      client.on('keyboard-interactive', function (a, b, c, prompt, cb) {
+        cb([opts.password])
+      })
+    }
+
+    client.connect({
+      host: opts.host,
+      username: opts.user,
+      password: opts.password,
+      port: opts.port || 22,
+      tryKeyboard: !!opts.password,
+      privateKey: key,
+      agent: process.env.SSH_AUTH_SOCK,
+      hostHash: 'md5',
+      hostVerifier: verifier
+    })
+  }
+
+  var run = function () {
+    client.exec(cmd, function (err, stdio) {
+      if (err) return stream.destroy(err)
+
+      stream.setWritable(stdio)
+      stream.setReadable(stdio)
+
+      stream.emit('ready')
+
+      stdio.stderr.setEncoding('utf-8')
+      stdio.stderr.on('data', function (data) {
+        stream.emit('warn', data)
+      })
+
+      stdio.on('exit', function (code) {
+        if (code !== 0) {
+          var err = new Error('Non-zero exit code: ' + code)
+          err.code = code
+          stream.emit('error', err)
+        }
+        stream.emit('exit', code)
+        client.end()
+      })
+    })
+  }
+
+  var onverify = function (err) {
+    if (err) return stream.destroy(err)
+    run()
+  }
+
+  client.once('ready', function () {
+    if (fingerprint === opts.fingerprint) return run()
+    if (!stream.emit('verify', fingerprint, onverify)) return run()
+  })
+
+  stream.on('close', function () {
+    client.end()
+  })
+
+  if (!key || Buffer.isBuffer(key) || key.toString().indexOf('\n') &gt; -1) {
+    connect()
+  } else {
+    fs.readFile(key, function (_, buffer) {
+      key = buffer
+      connect()
+    })
+  }
+
+  if (cb) oncallback(stream, cb)
+  return stream
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.ssh-exec.toString" id="apidoc.element.ssh-exec.toString">
+        function <span class="apidocSignatureSpan">ssh-exec.</span>toString
+        <span class="apidocSignatureSpan">()</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">toString = function () {
+    return text;
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">...
+  var fingerprint
+
+  client.on('error', function (err) {
+    stream.destroy(err)
+  })
+
+  var connect = function () {
+    if (key &amp;&amp; key.<span class="apidocCodeKeywordSpan">toString</span>().toLowerCase().indexOf('encrypted') &amp;#
+x3e; -1) key = null
+
+    var verifier = function (hash) {
+fingerprint = hash
+
+if (!opts.fingerprint) return true
+if (fingerprint === opts.fingerprint) return true
+...</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.ssh-exec.toString" id="apidoc.module.ssh-exec.toString">module ssh-exec.toString</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.ssh-exec.toString.toString" id="apidoc.element.ssh-exec.toString.toString">
+        function <span class="apidocSignatureSpan">ssh-exec.</span>toString
+        <span class="apidocSignatureSpan">()</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">function toString() { [native code] }</pre></li>
+    <li>example usage<pre class="apidocCodePre">...
+  var fingerprint
+
+  client.on('error', function (err) {
+    stream.destroy(err)
+  })
+
+  var connect = function () {
+    if (key &amp;&amp; key.<span class="apidocCodeKeywordSpan">toString</span>().toLowerCase().indexOf('encrypted') &amp;#
+x3e; -1) key = null
+
+    var verifier = function (hash) {
+fingerprint = hash
+
+if (!opts.fingerprint) return true
+if (fingerprint === opts.fingerprint) return true
+...</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocFooterDiv">
+    [ this document was created with
+    <a href="https://github.com/kaizhu256/node-utility2" target="_blank">utility2</a>
+    ]
+</div>
+</div>
+</body></html>
